@@ -48,69 +48,83 @@ AirSense bridges the gap between raw meteorological data and actionable environm
            │
            ▼
 [ React / Vite Frontend (Interactive Maps & Recharts Visualizations) ]
-⚙️ Prerequisites & Installation
-⚠️ Note to Evaluators / Developers: Due to strict time constraints during development, the core application components (Backend and Frontend) are currently configured to run locally while the database is containerized. A complete multi-container Docker deployment architecture is scheduled for the immediate roadmap prior to public release.
+```
 
-1. System Requirements
-Docker Desktop (running and healthy)
+---
 
-Python 3.10+
+## ⚙️ Prerequisites & Installation
 
-Node.js 18+ & npm
+> ⚠️ **Note to Evaluators / Developers:** Due to strict time constraints during development, the core application components (Backend and Frontend) are currently configured to run locally while the database is containerized. A complete multi-container Docker deployment architecture is scheduled for the immediate roadmap prior to public release.
 
-Git
+### 1. System Requirements
+* Docker Desktop (running and healthy)
+* Python 3.10+
+* Node.js 18+ & npm
+* Git
 
-2. Clone & Configure Environment
+### 2. Clone & Configure Environment
 Clone the repository and set up your environment variables based on the provided template:
 
-Bash
-git clone [https://github.com/your-username/AirSense.git](https://github.com/your-username/AirSense.git)
+```bash
+git clone https://github.com/your-username/AirSense.git
 cd AirSense
 cp .env.example .env
-(On Windows PowerShell, use: Copy-Item .env.example .env)
+```
 
-3. Spin Up the Database
+*(On Windows PowerShell, use: `Copy-Item .env.example .env`)*
+
+### 3. Spin Up the Database
 Initialize the TimescaleDB/PostGIS container:
 
-Bash
+```bash
 docker compose up -d timescaledb
-4. Run the Data Ingestion Pipelines
+```
+
+### 4. Run the Data Ingestion Pipelines
 Populate the database with historical data (180-day backfill) and compliance records:
 
-Bash
+```bash
 # Seed timeseries data for 5 major stations
 python ingestion/pipeline.py 
 
 # Seed spatial regulatory actions
 python ingestion/seed_compliance.py
-5. Launch the FastAPI Backend
+```
+
+### 5. Launch the FastAPI Backend
 Open a new terminal session in the project root:
 
-Bash
+```bash
 pip install -r backend/requirements.txt
 python -m uvicorn backend.main:app --reload --port 8000
-6. Launch the React Frontend
+```
+
+### 6. Launch the React Frontend
 Open another terminal session:
 
-Bash
+```bash
 cd frontend
 npm install
 npm run dev
-Navigate to http://localhost:5173 to interact with the platform.
+```
 
-🚦 Usage & API Documentation
-Interacting with the UI
-Station Selection: Click any geographic marker on the Leaflet map to set the active station context.
+Navigate to `http://localhost:5173` to interact with the platform.
 
-Forecast Analysis: Scroll to the "24-Hour AQI Forecast" card to view the XGBoost projection curve for the selected city.
+---
 
-Compliance Audit: View the bottom right panel for localized spatial regulatory infractions based on the selected region.
+## 🚦 Usage & API Documentation
 
-Core API Endpoints
-GET /api/stations
+### Interacting with the UI
+* **Station Selection:** Click any geographic marker on the Leaflet map to set the active station context.
+* **Forecast Analysis:** Scroll to the "24-Hour AQI Forecast" card to view the XGBoost projection curve for the selected city.
+* **Compliance Audit:** View the bottom right panel for localized spatial regulatory infractions based on the selected region.
+
+### Core API Endpoints
+
+#### `GET /api/stations`
 Retrieves all active monitoring stations with their geographic coordinates.
 
-JSON
+```json
 [
   {
     "station_id": "bengaluru",
@@ -119,10 +133,12 @@ JSON
     "lon": 77.5946
   }
 ]
-GET /api/forecast?station_id={id}
+```
+
+#### `GET /api/forecast?station_id={id}`
 Executes the XGBoost inference engine to return 24 hours of predicted AQI data.
 
-JSON
+```json
 {
   "station_id": "chennai",
   "forecast": [
@@ -130,24 +146,25 @@ JSON
     {"timestamp": "2026-10-10T02:00:00", "predicted_aqi": 64.1}
   ]
 }
-🧠 Challenges Faced & Lessons Learned
-Massive Docker Build Bottlenecks: Initially, installing ML dependencies (like XGBoost and FastAPI) pulled heavily unoptimized NVIDIA CUDA packages, resulting in 2GB+ image layers and 45-minute build times. Solution: We explicitly migrated the requirements.txt targets to CPU-only wheels for local inference, dropping the download footprint to ~200MB and cutting build time to under 3 minutes.
+```
 
-Time-Series Feature Starvation: The XGBoost forecasting service relies on a continuous rolling window (24–48 hours) to generate autoregressive lag features. Early iterations failed silently with "Insufficient historical data" because of un-synced NULL values in the base aqi column. Solution: We engineered a resilient SQL COALESCE pipeline to sync calculated aqi_cpcb metrics with raw aqi columns, ensuring feature generation never starved the model.
+---
 
-Spatial and Temporal Aggregation: Combining standard relational data with both heavy time-series aggregations (TimescaleDB) and geographic boundaries (PostGIS) created heavy initial query loads. Solution: We implemented composite B-Tree indexing on (time DESC, station_id) to ensure sub-millisecond retrieval of the latest monitoring payload.
+## 🧠 Challenges Faced & Lessons Learned
 
-🔮 Future Roadmap
-Short-Term (Next 30 Days)
+* **Massive Docker Build Bottlenecks:** Initially, installing ML dependencies (like XGBoost and FastAPI) pulled heavily unoptimized NVIDIA CUDA packages, resulting in 2GB+ image layers and 45-minute build times. **Solution:** We explicitly migrated the `requirements.txt` targets to CPU-only wheels for local inference, dropping the download footprint to ~200MB and cutting build time to under 3 minutes.
+* **Time-Series Feature Starvation:** The XGBoost forecasting service relies on a continuous rolling window (24–48 hours) to generate autoregressive lag features. Early iterations failed silently with "Insufficient historical data" because of un-synced `NULL` values in the base `aqi` column. **Solution:** We engineered a resilient SQL `COALESCE` pipeline to sync calculated `aqi_cpcb` metrics with raw `aqi` columns, ensuring feature generation never starved the model.
+* **Spatial and Temporal Aggregation:** Combining standard relational data with both heavy time-series aggregations (TimescaleDB) and geographic boundaries (PostGIS) created heavy initial query loads. **Solution:** We implemented composite B-Tree indexing on `(time DESC, station_id)` to ensure sub-millisecond retrieval of the latest monitoring payload.
 
-Full Containerization: Complete the docker-compose.yml to package the React frontend and FastAPI backend into isolated, production-ready containers.
+---
 
-CI/CD Integration: Implement GitHub Actions for automated unit testing (PyTest) and linting.
+## 🔮 Future Roadmap
 
-Long-Term (Q1-Q2 Next Year)
+**Short-Term (Next 30 Days)**
+* **Full Containerization:** Complete the `docker-compose.yml` to package the React frontend and FastAPI backend into isolated, production-ready containers.
+* **CI/CD Integration:** Implement GitHub Actions for automated unit testing (PyTest) and linting.
 
-Public Cloud Deployment: Migrate the full-stack architecture to AWS/GCP for public consumption.
-
-Hardware Edge Integration: Transition from weather-API ingestion to direct WebSocket streaming from physical, low-cost IoT particulate matter sensors.
-
-Mobile Port: Wrap the frontend interface in React Native for accessible, on-the-go citizen monitoring.
+**Long-Term (Q1-Q2 Next Year)**
+* **Public Cloud Deployment:** Migrate the full-stack architecture to AWS/GCP for public consumption.
+* **Hardware Edge Integration:** Transition from weather-API ingestion to direct WebSocket streaming from physical, low-cost IoT particulate matter sensors.
+* **Mobile Port:** Wrap the frontend interface in React Native for accessible, on-the-go citizen monitoring.
